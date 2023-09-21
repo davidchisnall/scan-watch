@@ -133,7 +133,7 @@ namespace
 	 */
 	FileDescriptor connect_socket(const char *path)
 	{
-		FileDescriptor s{socket(PF_LOCAL, SOCK_SEQPACKET, AF_LOCAL)};
+		FileDescriptor s{socket(PF_LOCAL, SOCK_SEQPACKET, 0)};
 		sockaddr_un    address = {0};
 		address.sun_len        = strlen(path);
 		address.sun_family     = AF_UNIX;

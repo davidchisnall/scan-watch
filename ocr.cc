@@ -687,7 +687,7 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 void start_child()
 {
 	int outputSockets[2] = {-1, -1};
-	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, AF_LOCAL, outputSockets) < 0)
+	if (socketpair(PF_LOCAL, SOCK_SEQPACKET, 0, outputSockets) < 0)
 	{
 		perror("socketpair");
 		exit(EXIT_FAILURE);
@@ -733,7 +733,7 @@ int main(int argc, char **argv)
 	struct sockaddr_un addr;
 	unlink(socketPath.c_str());
 
-	int s = socket(PF_LOCAL, SOCK_SEQPACKET, AF_LOCAL);
+	int s = socket(PF_LOCAL, SOCK_SEQPACKET, 0);
 
 	sockaddr_un address = {0};
 	address.sun_len     = socketPath.size();
