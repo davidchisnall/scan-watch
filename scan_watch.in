@@ -1,0 +1,24 @@
+#!/bin/sh 
+
+# PROVIDE: scan_watch
+
+. /etc/rc.subr 
+
+name="scan_watch" 
+scan_watch_binary="@CMAKE_INSTALL_PREFIX@/bin/scan-watch-ocr"
+scan_watch_title="scan-watch-ocr"
+pidfile="/var/run/${name}.pid"
+
+load_rc_config $name 
+: ${scan_watch_username="scanner"}
+: ${scan_watch_socket_path="/var/run/scan_watch/sftp.sock"}
+: ${scan_watch_output_dir="/share/scans"}
+: ${scan_watch_script_dir="@CMAKE_INSTALL_PREFIX@/etc/scan_watch"}
+: ${scan_watch_pid_file="/var/run/scan_watch/scan_watch.pid"}
+
+rcvar=${name}_enable
+
+command="/usr/sbin/daemon"
+command_args="-S -t ${scan_watch_title} -u ${scan_watch_username} -P ${pidfile} ${scan_watch_binary} -s ${scan_watch_socket_path} -l ${scan_watch_script_dir} -o ${scan_watch_output_dir}"
+
+run_rc_command "$1" 
