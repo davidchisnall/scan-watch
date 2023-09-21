@@ -480,6 +480,13 @@ namespace
 	  openFiles;
 
 	/**
+	 * Map from exported file ID to the name (full path) of open directories.
+	 *
+	 * All directories are faked.
+	 */
+	std::unordered_map<uint64_t, std::string> openDirectories;
+
+	/**
 	 * The next ID to use for external handles.
 	 */
 	uint64_t nextFileID;
@@ -536,7 +543,16 @@ namespace
 		auto handleString = h.consume<std::string>();
 		int  handle       = std::stod(handleString);
 		auto file         = openFiles.find(handle);
-		expect(file != openFiles.end(), "File {} is not open", handleString);
+		if (file == openFiles.end())
+		{
+			auto dir = openDirectories.find(handle);
+			expect(dir != openDirectories.end(),
+			       "File {} is not open",
+			       handleString);
+			openDirectories.erase(dir);
+			reply_with_status(h);
+			return;
+		}
 		auto        fileName = file->second.first;
 		auto       &fd       = file->second.second;
 		struct stat sb       = {0};
@@ -548,6 +564,16 @@ namespace
 		int ret = send_file(fileName, fd, resultSocket);
 		expect(ret >= 0, "sendmsg failed: {}", strerror(errno));
 		openFiles.erase(file);
+	}
+
+	/**
+	 * Handle directory read requests.  All directories are empty.
+	 */
+	template<>
+	void handle<PacketType::SSH_FXP_READDIR>(Request &h)
+	{
+		// Ignore the path request and pretend everything is fine.
+		reply_with_status(h, ErrorCode::SSH_FX_EOF, "No more files");
 	}
 
 	/**
@@ -583,6 +609,21 @@ namespace
 			written += ret;
 		}
 		reply_with_status(h);
+	}
+
+	/**
+	 * Handle directory open requests.
+	 */
+	template<>
+	void handle<PacketType::SSH_FXP_OPENDIR>(Request &h)
+	{
+		auto dir = h.consume<std::string>();
+		log("Opening fake directory {}", dir);
+		int id = nextFileID++;
+		openDirectories.emplace(id, std::move(dir));
+		std::stringstream out;
+		out << id;
+		h.reply(PacketType::SSH_FXP_HANDLE).append(out.str());
 	}
 
 	/**
