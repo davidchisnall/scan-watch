@@ -597,8 +597,9 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 			s << stem << '-' << suffix++ << extension;
 			path.replace_filename(s.str());
 			log<Verbose>("Trying new filename {}", path.string());
-			// Give up after a bounded number of tries.  If we hit this case, we're probably under attack.
-		} while (suffix < 2);
+			// Give up after a bounded number of tries.  If we hit this case,
+			// we're probably under attack.
+		} while (suffix < 100);
 		return FileDescriptor{};
 	};
 
