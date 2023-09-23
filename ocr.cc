@@ -395,6 +395,7 @@ class LuaMatcher
 {
 	/// Lua VM for this matcher
 	sol::state lua;
+
 	/// File name for the script
 	std::string fileName;
 
@@ -413,6 +414,7 @@ class LuaMatcher
 	{
 		return fileName;
 	}
+
 	/**
 	 * Construct a matcher from Lua code in the specified file.
 	 */
@@ -470,6 +472,13 @@ class LuaMatcher
 	}
 
 	/**
+	 * Copy and move construction not allowed.  The captured functions rely on
+	 * the sol::state not being relocated.
+	 */
+	LuaMatcher(const LuaMatcher &) = delete;
+	LuaMatcher(LuaMatcher &&)      = default;
+
+	/**
 	 * Run the garbage collector now.
 	 */
 	void gc()
@@ -481,7 +490,7 @@ class LuaMatcher
 /**
  * Collection of all of the matchers.
  */
-std::vector<LuaMatcher> matchers;
+std::vector<std::shared_ptr<LuaMatcher>> matchers;
 
 /**
  * The current document being assembled.
@@ -495,7 +504,7 @@ Document currentDocument;
 void process_page(std::string &&filename, FileDescriptor &&file)
 {
 	// The last matcher that we found.
-	static LuaMatcher *lastMatcher;
+	static std::shared_ptr<LuaMatcher> lastMatcher;
 
 	// Stash the received file as a temporary.  It may be used when writing the
 	// PDF.
@@ -526,17 +535,17 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 	api->SetImage(image);
 	api->SetInputName(filename.c_str());
 	api->Recognize(nullptr);
-	auto        text              = TextChunk::extract_text(*api);
-	LuaMatcher *matcher           = nullptr;
-	double      highestConfidence = 0;
+	auto                        text = TextChunk::extract_text(*api);
+	std::shared_ptr<LuaMatcher> matcher;
+	double                      highestConfidence = 0;
 	for (auto &m : matchers)
 	{
-		double confidence = hide_exception(0, m.test, *text);
-		m.gc();
+		double confidence = hide_exception(0, m->test, *text);
+		m->gc();
 		if (confidence > highestConfidence)
 		{
 			highestConfidence = confidence;
-			matcher           = &m;
+			matcher           = m;
 		}
 		// If we've found a high-confidence match, stop.
 		if (confidence >= 100)
@@ -838,7 +847,7 @@ int main(int argc, char **argv)
 	     std::filesystem::directory_iterator{std::filesystem::path{luaPath}})
 	{
 		log<Verbose>("Opening Lua file {}", file.path().string());
-		matchers.emplace_back(file.path());
+		matchers.push_back(std::make_shared<LuaMatcher>(file.path()));
 	}
 
 	while (true)
