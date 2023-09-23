@@ -593,7 +593,7 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 			FileDescriptor outFD{openat(outputDirectory,
 			                            path.c_str(),
 			                            O_WRONLY | O_CREAT | O_EXCL,
-			                            0600)};
+			                            0660)};
 			if (outFD)
 			{
 				log<Verbose>("Opened output file {}", path.string());
@@ -725,6 +725,11 @@ int main(int argc, char **argv)
 	app.add_option("-s,--socket", socketPath, "Path to the socket");
 	app.add_option("-l,--lua-scripts", luaPath, "Path to lua match scripts");
 	app.add_option("-o,--output-directory", outputPath, "Path to put output");
+
+	// We want members of the group that this runs as to be able to submit
+	// files and move the generated files elsewhere, we don't want anyone else
+	// to be able to do anything, so set the umask.
+	umask(0117);
 
 	try
 	{
