@@ -675,8 +675,8 @@ namespace
 	template<bool LoggingEnabled = EnableLogging>
 	std::enable_if_t<LoggingEnabled, void> *init_log_file()
 	{
-		logfile = std::conditional_t<LoggingEnabled, std::ofstream, void>{"sftp.log",
-		                        std::ios::out | std::ios::ate | std::ios::app};
+		logfile = std::conditional_t<LoggingEnabled, std::ofstream, void>{
+		  "sftp.log", std::ios::out | std::ios::ate | std::ios::app};
 		return nullptr;
 	}
 

@@ -569,9 +569,15 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 	FileDescriptor s{rawSocket};
 	// Open the output directory and set
 	FileDescriptor outputDirectory{open(outputPath.c_str(), O_DIRECTORY)};
-	expect(outputDirectory, "Child process failed to open {}: {}", outputPath, strerror(errno));
+	expect(outputDirectory,
+	       "Child process failed to open {}: {}",
+	       outputPath,
+	       strerror(errno));
 	outputDirectory.capsicum_limit(CAP_PWRITE, CAP_CREATE, CAP_LOOKUP);
-	expect(outputDirectory, "Child process failed to limit rights on {}: {}", outputPath, strerror(errno));
+	expect(outputDirectory,
+	       "Child process failed to limit rights on {}: {}",
+	       outputPath,
+	       strerror(errno));
 	// Drop privileges.
 	cap_enter();
 	log<Verbose>("Child process starting to write to {}", outputPath);
