@@ -9,7 +9,7 @@ int main(int argc, char **argv)
 {
 	CLI::App app{"scan-watch file upload"};
 	app.allow_extras();
-	std::string socketPath = "sftp.sock";
+	std::string socketPath = "/var/run/scan_watch/sftp.sock";
 	app.add_option("-s,--socket", socketPath, "Path to the socket");
 	bool unlinkFile = false;
 	app.add_flag("-d,--delete", unlinkFile, "Delete the file after sending");
