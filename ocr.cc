@@ -114,6 +114,30 @@ void expect(bool condition, std::string_view msg, Args... args)
 }
 
 /**
+ * Call a function and hide any exception that's thrown.
+ *
+ * Calls `fn` with `args` and returns the result.  If this throws an exception,
+ * logs the error and returns `defaultValue` instead.
+ */
+template<typename... Args>
+auto hide_exception(auto &&defaultValue, auto &&fn, Args... args)
+{
+	try
+	{
+		return fn(std::forward<Args>(args)...);
+	}
+	catch (std::exception &e)
+	{
+		log("Unexpected exception: {}", e.what());
+	}
+	catch (...)
+	{
+		log("Unknown exception");
+	}
+	return static_cast<decltype(fn(std::forward<Args>(args)...))>(defaultValue);
+}
+
+/**
  * Class representing a page.  These are collected before being emitted.
  */
 class Page
@@ -371,6 +395,8 @@ class LuaMatcher
 {
 	/// Lua VM for this matcher
 	sol::state lua;
+	/// File name for the script
+	std::string fileName;
 
 	public:
 	/**
@@ -383,10 +409,14 @@ class LuaMatcher
 	 */
 	std::function<sol::table(sol::nested<std::vector<TextChunk>>)> match;
 
+	std::string_view file_name()
+	{
+		return fileName;
+	}
 	/**
 	 * Construct a matcher from Lua code in the specified file.
 	 */
-	LuaMatcher(const std::string &script)
+	LuaMatcher(const std::string &script) : fileName{script}
 	{
 		lua.open_libraries(
 		  sol::lib::base, sol::lib::package, sol::lib::string, sol::lib::math);
@@ -501,7 +531,7 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 	double      highestConfidence = 0;
 	for (auto &m : matchers)
 	{
-		double confidence = m.test(*text);
+		double confidence = hide_exception(0, m.test, *text);
 		m.gc();
 		if (confidence > highestConfidence)
 		{
@@ -515,10 +545,33 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 		}
 	}
 
+	auto writeUnknownPage = [&]() {
+		currentDocument.finish();
+		lastMatcher = nullptr;
+		std::filesystem::path path{filename};
+		currentDocument.set_title(path.stem());
+		currentDocument.set_page_count(1);
+		currentDocument.add_page({std::move(api), 1});
+	};
+
 	if (highestConfidence > 0)
 	{
 		log<Verbose>("Match confidence {}", highestConfidence);
-		auto matchResult = matcher->match(*text);
+		sol::table matchResult;
+		try
+		{
+			matchResult = matcher->match(*text);
+		}
+		catch (std::exception &e)
+		{
+			log("Unexpected exception running match: {}", e.what());
+			return writeUnknownPage();
+		}
+		catch (...)
+		{
+			log("Unknown exception running match");
+			return writeUnknownPage();
+		}
 		matcher->gc();
 		auto [title, page, count, discard, finish] =
 		  matchResult.get<std::optional<std::string>,
@@ -555,6 +608,10 @@ void process_page(std::string &&filename, FileDescriptor &&file)
 		{
 			lastMatcher = nullptr;
 		}
+	}
+	else
+	{
+		writeUnknownPage();
 	}
 }
 
